@@ -1,13 +1,13 @@
 @echo off
 SETLOCAL
 
-# ------------------------------------------------------------------------------
-# -- What is Raven?
-# A DOS Batch wrapper around mvn to save output to file and open it in an editor
-# By Robert Mark Bram
-# https://github.com/robertmarkbram/MavenUtilities
-# http://robertmarkbramprogrammer.blogspot.com.au/2015/01/do-you-use-mvn-on-dos-prompt.html
-# ------------------------------------------------------------------------------
+:: ------------------------------------------------------------------------------
+:: -- What is Raven?
+:: A DOS Batch wrapper around mvn to save output to file and open it in an editor
+:: By Robert Mark Bram
+:: https://github.com/robertmarkbram/MavenUtilities
+:: http://robertmarkbramprogrammer.blogspot.com.au/2015/01/do-you-use-mvn-on-dos-prompt.html
+:: ------------------------------------------------------------------------------
 :: Set-up Dependencies first.
 :: - This script
 ::    - Save this script as raven.bat in some folder you like to use for utilities etc.
