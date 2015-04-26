@@ -36,7 +36,6 @@ public final class OutputFieldList {
 
 	/** Class not meant for external instantiation. */
 	private OutputFieldList() {
-
 	}
 
 	/**
