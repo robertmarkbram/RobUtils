@@ -5,7 +5,7 @@ SETLOCAL
 :: -- What is Raven?
 :: A DOS Batch wrapper around mvn to save output to file and open it in an editor
 :: By Robert Mark Bram
-:: https://github.com/robertmarkbram/MavenUtilities
+:: https://github.com/robertmarkbram/RobUtils
 :: http://robertmarkbramprogrammer.blogspot.com.au/2015/01/do-you-use-mvn-on-dos-prompt.html
 :: ------------------------------------------------------------------------------
 :: Set-up Dependencies first.
