@@ -16,6 +16,7 @@ public final class FieldCommentSampleClass {
 	@FieldComment(comment = "How old it is.")
 	private int age;
 
+	// Field with no javadoc comment.
 	private int year;
 
 }
