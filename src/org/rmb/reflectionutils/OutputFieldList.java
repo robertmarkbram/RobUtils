@@ -1,5 +1,6 @@
 package org.rmb.reflectionutils;
 
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.rmb.reflectionutils.OutputFieldList.OutputFields.OUTPUT_FIELDS;
 import static org.rmb.reflectionutils.OutputFieldList.OutputGetters.OUTPUT_GETTERS;
 import static org.rmb.reflectionutils.OutputFieldList.OutputSetters.OUTPUT_SETTERS;
@@ -13,6 +14,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -137,12 +140,15 @@ public final class OutputFieldList {
 	 *           map of member names names by class
 	 * @param showParameters
 	 *           include parameters in report?
+	 * @param withType
+	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
 	 */
 	private static void addSetMethodNamesToList(final Class clazz,
 			final Map<Class, List<String>> membersByClass,
-			final ShowParameters showParameters, final TypeOutput typeOutput) {
+			final ShowParameters showParameters, final WithType withType,
+			final TypeOutput typeOutput) {
 		// Finished once we get to Object.
 		if (clazz.getName().equals(Object.class.getName())) {
 			return;
@@ -151,13 +157,14 @@ public final class OutputFieldList {
 		List<Method> declaredMethods = Arrays.asList(clazz.getDeclaredMethods());
 		List<String> memberNames = new ArrayList<String>();
 		for (Method method : declaredMethods) {
-			extractSetMethod(showParameters, memberNames, method, typeOutput);
+			extractSetMethod(showParameters, memberNames, method, withType,
+					typeOutput);
 		}
 		membersByClass.put(clazz, memberNames);
 
 		// Add field for the superclass.
 		addSetMethodNamesToList(clazz.getSuperclass(), membersByClass,
-				showParameters, typeOutput);
+				showParameters, withType, typeOutput);
 	}
 
 	/**
@@ -200,12 +207,14 @@ public final class OutputFieldList {
 	 *           name of the get method members in this class
 	 * @param method
 	 *           that we are looking now
+	 * @param withType
+	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
 	 */
 	private static void extractSetMethod(final ShowParameters showParameters,
 			final List<String> memberNames, final Method method,
-			final TypeOutput typeOutput) {
+			final WithType withType, final TypeOutput typeOutput) {
 		String methodName = method.getName();
 		if (methodName.startsWith("set") && !methodName.equals("getClass")) {
 			if (showParameters == INCLUDE_PARAMS) {
@@ -234,7 +243,9 @@ public final class OutputFieldList {
 					}
 				}
 				memberString += ");";
-				memberString += " // " + typeString;
+				if (withType.equals(INCLUDE_TYPE)) {
+					memberString += " // " + typeString;
+				}
 				memberNames.add(memberString);
 			} else {
 				memberNames.add(methodName + "();");
@@ -293,6 +304,18 @@ public final class OutputFieldList {
 
 		for (Field field : declaredFields) {
 			String type = getClassName(field.getType(), SIMPLE);
+			// Is type a generic type?
+			// TODO rmb doesn't work. Why?
+			String typeGenericSt = null;
+			Type genericSuperclass = field.getClass().getGenericSuperclass();
+			if (genericSuperclass instanceof ParameterizedType) {
+				ParameterizedType typeGeneric =
+						(ParameterizedType) field.getGenericType();
+				Class<?> typeGenericClass =
+						(Class<?>) typeGeneric.getActualTypeArguments()[0];
+				typeGenericSt = getClassName(typeGenericClass, SIMPLE);
+			}
+
 			String name = field.getName();
 			String comment = generateCommentForField(field);
 			String commentFirstLetter = comment.substring(0, 1);
@@ -303,17 +326,28 @@ public final class OutputFieldList {
 					nameFirstLetter, nameFirstLetter.toUpperCase());
 
 			fields.append("   /** ").append(comment).append(" */\n   private ")
-					.append(type).append(" ").append(name).append(";\n\n");
+					.append(type);
+			if (isNotBlank(typeGenericSt)) {
+				fields.append("<").append(typeGenericSt).append(">");
+			}
+			fields.append(" ").append(name).append(";\n\n");
 
 			getters.append("   /** @return ").append(lowerCaseComment)
-					.append(" */\n   public ").append(type).append(" get")
-					.append(capitalName).append("() {\n      return ").append(name)
+					.append(" */\n   public ").append(type);
+			if (isNotBlank(typeGenericSt)) {
+				getters.append("<").append(typeGenericSt).append(">");
+			}
+			getters.append(" get").append(capitalName)
+					.append("() {\n      return ").append(name)
 					.append(";\n   }\n\n");
 
 			setters.append("   /** @param the").append(capitalName).append(" ")
 					.append(lowerCaseComment).append(" */\n   public void set")
-					.append(capitalName).append("(final ").append(type)
-					.append(" the").append(capitalName).append(") {\n      this.")
+					.append(capitalName).append("(final ").append(type);
+			if (isNotBlank(typeGenericSt)) {
+				setters.append("<").append(typeGenericSt).append(">");
+			}
+			setters.append(" the").append(capitalName).append(") {\n      this.")
 					.append(name).append(" = the").append(capitalName)
 					.append(";\n   }\n\n");
 		}
@@ -422,18 +456,20 @@ public final class OutputFieldList {
 	 *           class you want to examine
 	 * @param showParameters
 	 *           include parameters in report?
+	 * @param withType
+	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
 	 * @throws Exception
 	 *            if something goes wrong with reflection
 	 */
 	public static void listSetMethods(final Class clazz,
-			final ShowParameters showParameters, final TypeOutput typeOutput)
-			throws Exception {
+			final ShowParameters showParameters, final WithType withType,
+			final TypeOutput typeOutput) throws Exception {
 		Map<Class, List<String>> membersByClass =
 				new HashMap<Class, List<String>>();
 		addSetMethodNamesToList(clazz, membersByClass, //
-				showParameters, typeOutput);
+				showParameters, withType, typeOutput);
 		System.out.println("\n\n=============== SET METHODS ===============");
 		outputMemberNames(clazz, membersByClass, typeOutput);
 	}
@@ -445,17 +481,20 @@ public final class OutputFieldList {
 	 *            for any exceptions from reflection.
 	 */
 	public static void main(final String[] args) throws Exception {
-		generateGetAndSetMethods(FieldCommentSampleClass.class, //
-				OutputFields.NO_FIELDS, //
-				OutputGetters.OUTPUT_GETTERS, //
-				OutputSetters.OUTPUT_SETTERS);
+		listSetMethods(FieldCommentSampleClass.class, INCLUDE_PARAMS,
+				WithType.NO_TYPE, SIMPLE);
 
 		final boolean no = false;
 		if (no) {
+			generateGetAndSetMethods(FieldCommentSampleClass.class, //
+					OutputFields.NO_FIELDS, //
+					OutputGetters.OUTPUT_GETTERS, //
+					OutputSetters.OUTPUT_SETTERS);
 			outputToStringHashAndEquals(FieldCommentSampleClass.class);
 			listGetMethods(FieldCommentSampleClass.class, INCLUDE_TYPE,
 					TYPE_AT_START, SIMPLE);
-			listSetMethods(FieldCommentSampleClass.class, INCLUDE_PARAMS, SIMPLE);
+			listSetMethods(FieldCommentSampleClass.class, INCLUDE_PARAMS,
+					WithType.INCLUDE_TYPE, SIMPLE);
 			listFields(FieldCommentSampleClass.class, INCLUDE_TYPE, TYPE_AT_START,
 					SIMPLE);
 		}
