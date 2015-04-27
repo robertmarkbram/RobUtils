@@ -37,8 +37,12 @@ import org.rmb.reflectionutils.javadoc.FieldCommentSampleClass;
 @SuppressWarnings("rawtypes")
 public final class OutputFieldList {
 
+	// TODO rmb - create settings object to cut down on parameters.
+	// TODO rmb - add ability to specify object name for get/set lists.
+
 	/** Class not meant for external instantiation. */
 	private OutputFieldList() {
+
 	}
 
 	/**
@@ -144,11 +148,14 @@ public final class OutputFieldList {
 	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
+	 * @param objectName
+	 *           to prepend sets with so that they will come out as
+	 *           <code>objectName.setFoo(bar);</code>.f
 	 */
 	private static void addSetMethodNamesToList(final Class clazz,
 			final Map<Class, List<String>> membersByClass,
 			final ShowParameters showParameters, final WithType withType,
-			final TypeOutput typeOutput) {
+			final TypeOutput typeOutput, final String objectName) {
 		// Finished once we get to Object.
 		if (clazz.getName().equals(Object.class.getName())) {
 			return;
@@ -158,13 +165,13 @@ public final class OutputFieldList {
 		List<String> memberNames = new ArrayList<String>();
 		for (Method method : declaredMethods) {
 			extractSetMethod(showParameters, memberNames, method, withType,
-					typeOutput);
+					typeOutput, objectName);
 		}
 		membersByClass.put(clazz, memberNames);
 
 		// Add field for the superclass.
 		addSetMethodNamesToList(clazz.getSuperclass(), membersByClass,
-				showParameters, withType, typeOutput);
+				showParameters, withType, typeOutput, objectName);
 	}
 
 	/**
@@ -211,20 +218,27 @@ public final class OutputFieldList {
 	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
+	 * @param objectName
+	 *           to prepend sets with so that they will come out as
+	 *           <code>objectName.setFoo(bar);</code>.f
 	 */
 	private static void extractSetMethod(final ShowParameters showParameters,
 			final List<String> memberNames, final Method method,
-			final WithType withType, final TypeOutput typeOutput) {
+			final WithType withType, final TypeOutput typeOutput,
+			final String objectName) {
 		String methodName = method.getName();
 		if (methodName.startsWith("set") && !methodName.equals("getClass")) {
 			if (showParameters == INCLUDE_PARAMS) {
 				String memberString = methodName + "(";
+				if (isNotBlank(objectName)) {
+					memberString = objectName + "." + memberString;
+				}
 				Parameter[] parameters = method.getParameters();
 				String typeString = "";
 				for (int index = 0; index < parameters.length; index++) {
 					Parameter parameter = parameters[index];
 					typeString += getClassName(parameter.getType(), typeOutput);
-					// Remove "get".
+					// Remove "set".
 					String paramName = method.getName().replaceFirst("set", "");
 					// Lowercase first letter.
 					String firstLetterUpper = paramName.substring(0, 1);
@@ -248,7 +262,7 @@ public final class OutputFieldList {
 				}
 				memberNames.add(memberString);
 			} else {
-				memberNames.add(methodName + "();");
+				memberNames.add(methodName);
 			}
 		}
 
@@ -460,16 +474,20 @@ public final class OutputFieldList {
 	 *           include parameter type in report?
 	 * @param typeOutput
 	 *           how to output class name
+	 * @param objectName
+	 *           to prepend sets with so that they will come out as
+	 *           <code>objectName.setFoo(bar);</code>.f
 	 * @throws Exception
 	 *            if something goes wrong with reflection
 	 */
 	public static void listSetMethods(final Class clazz,
 			final ShowParameters showParameters, final WithType withType,
-			final TypeOutput typeOutput) throws Exception {
+			final TypeOutput typeOutput, final String objectName)//
+			throws Exception {
 		Map<Class, List<String>> membersByClass =
 				new HashMap<Class, List<String>>();
 		addSetMethodNamesToList(clazz, membersByClass, //
-				showParameters, withType, typeOutput);
+				showParameters, withType, typeOutput, objectName);
 		System.out.println("\n\n=============== SET METHODS ===============");
 		outputMemberNames(clazz, membersByClass, typeOutput);
 	}
@@ -482,7 +500,7 @@ public final class OutputFieldList {
 	 */
 	public static void main(final String[] args) throws Exception {
 		listSetMethods(FieldCommentSampleClass.class, INCLUDE_PARAMS,
-				WithType.NO_TYPE, SIMPLE);
+				WithType.NO_TYPE, SIMPLE, "business");
 
 		final boolean no = false;
 		if (no) {
@@ -494,7 +512,7 @@ public final class OutputFieldList {
 			listGetMethods(FieldCommentSampleClass.class, INCLUDE_TYPE,
 					TYPE_AT_START, SIMPLE);
 			listSetMethods(FieldCommentSampleClass.class, INCLUDE_PARAMS,
-					WithType.INCLUDE_TYPE, SIMPLE);
+					WithType.INCLUDE_TYPE, SIMPLE, null);
 			listFields(FieldCommentSampleClass.class, INCLUDE_TYPE, TYPE_AT_START,
 					SIMPLE);
 		}
@@ -560,43 +578,43 @@ public final class OutputFieldList {
 		// @formatter:off
 		// toString.
 		StringBuilder toString = new StringBuilder();
-		toString.append("   @Override\n");
-		toString.append("   public String toString() {\n");
-		toString.append("      org.apache.commons.lang.builder.ToStringBuilder"
+		toString.append("	@Override\n");
+		toString.append("	public String toString() {\n");
+		toString.append("		org.apache.commons.lang.builder.ToStringBuilder"
 				+ ".setDefaultStyle(org.apache.commons.lang.builder"
 				+ ".ToStringStyle.SHORT_PREFIX_STYLE);\n");
-		toString.append("      // @formatter:off\n");
-		toString.append("      return new org.apache.commons.lang.builder"
+		toString.append("		// @formatter:off\n");
+		toString.append("		return new org.apache.commons.lang.builder"
 				+ ".ToStringBuilder(this)\n");
 
 		// Hashcode.
 		StringBuilder hashCode = new StringBuilder();
-		hashCode.append("   @Override\n");
-		hashCode.append("   public int hashCode() {\n");
-		hashCode.append("      // @formatter:off\n");
-		hashCode.append("      return new org.apache.commons.lang.builder"
+		hashCode.append("	@Override\n");
+		hashCode.append("	public int hashCode() {\n");
+		hashCode.append("		// @formatter:off\n");
+		hashCode.append("		return new org.apache.commons.lang.builder"
 				+ ".HashCodeBuilder()\n");
 
 		// Equals.
 		StringBuilder equals = new StringBuilder();
-		equals.append("   @Override\n");
-		equals.append("   public boolean equals(final Object obj) {\n");
-		equals.append("      if (obj == this) {\n");
-		equals.append("         return true; // test for reference equality\n");
-		equals.append("      }\n");
-		equals.append("      if (obj == null) {\n");
-		equals.append("         return false; // test for null\n");
-		equals.append("      }\n");
-		equals.append("      if (obj instanceof ");
+		equals.append("	@Override\n");
+		equals.append("	public boolean equals(final Object obj) {\n");
+		equals.append("		if (obj == this) {\n");
+		equals.append("			return true; // test for reference equality\n");
+		equals.append("		}\n");
+		equals.append("		if (obj == null) {\n");
+		equals.append("			return false; // test for null\n");
+		equals.append("		}\n");
+		equals.append("		if (obj instanceof ");
 		equals.append(getClassName(clazz, SIMPLE));
 		equals.append(") {\n");
-		equals.append("         final ");
+		equals.append("			final ");
 		equals.append(getClassName(clazz, SIMPLE));
 		equals.append(" other = (");
 		equals.append(getClassName(clazz, SIMPLE));
 		equals.append(") obj;\n");
-		equals.append("         // @formatter:off\n");
-		equals.append("         return new org.apache.commons.lang.builder"
+		equals.append("			// @formatter:off\n");
+		equals.append("			return new org.apache.commons.lang.builder"
 				+ ".EqualsBuilder()\n");
 		// @formatter:on
 
@@ -604,19 +622,19 @@ public final class OutputFieldList {
 			String fieldName = field.getName();
 
 			// Tostring.
-			toString.append("         .append(\"");
+			toString.append("			.append(\"");
 			toString.append(fieldName);
 			toString.append("\", ");
 			toString.append(fieldName);
 			toString.append(")\n");
 
 			// Hashcode.
-			hashCode.append("            .append(");
+			hashCode.append("				.append(");
 			hashCode.append(fieldName);
 			hashCode.append(")\n");
 
 			// Equals.
-			equals.append("               .append(");
+			equals.append("					.append(");
 			equals.append(fieldName);
 			equals.append(", other.");
 			equals.append(fieldName);
@@ -625,22 +643,22 @@ public final class OutputFieldList {
 		}
 
 		// Finish toString.
-		toString.append("         .toString();\n");
-		toString.append("      // @formatter:on\n");
-		toString.append("   }\n");
+		toString.append("			.toString();\n");
+		toString.append("		// @formatter:on\n");
+		toString.append("	}\n");
 
 		// Finish hashCode.
-		hashCode.append("            .toHashCode();\n");
-		hashCode.append("      // @formatter:on\n");
-		hashCode.append("   }\n");
+		hashCode.append("				.toHashCode();\n");
+		hashCode.append("		// @formatter:on\n");
+		hashCode.append("	}\n");
 
 		// Finish equals.
-		equals.append("               .isEquals();\n");
-		equals.append("         // @formatter:on\n");
-		equals.append("      } else {\n");
-		equals.append("         return false;\n");
-		equals.append("      }\n");
-		equals.append("   }\n");
+		equals.append("					.isEquals();\n");
+		equals.append("			// @formatter:on\n");
+		equals.append("		} else {\n");
+		equals.append("			return false;\n");
+		equals.append("		}\n");
+		equals.append("	}\n");
 
 		System.out.println(equals);
 		System.out.println(hashCode);
