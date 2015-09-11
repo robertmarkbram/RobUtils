@@ -402,8 +402,11 @@ public final class OutputFieldList {
     *
     * @param clazz
     *           class to examine
+    * @throws Exception
+    *            if we are unable to examine a field's value.
     */
-   public static void generateStaticFieldComments(final Class clazz) {
+   public static void generateStaticFieldComments(final Class clazz)
+         throws Exception {
       // Add fields for this class.
       List<Field> declaredFields =
             Arrays.asList(clazz.getDeclaredFields()).stream()
@@ -440,7 +443,10 @@ public final class OutputFieldList {
          if (isNotBlank(typeGenericSt)) {
             fields.append("<").append(typeGenericSt).append(">");
          }
-         fields.append(" ").append(name).append(";\n\n");
+         fields.append(" ").append(name)//
+               .append(" = \"")//
+               .append(field.get(null))//
+               .append("\";\n\n");
 
       }
       System.out.print(fields);
