@@ -22,6 +22,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.rmb.reflectionutils.javadoc.FieldComment;
@@ -296,9 +298,13 @@ public final class OutputFieldList {
     *
     * @param field
     *           in the class we are generating getters and setters for.
+    * @param replacements
+    *           list of replacements to make to the comments. Can be null or
+    *           empty, in which case it will be ignored.
     * @return comment from the field contents.
     */
-   private static String generateCommentForStaticField(final Field field) {
+   private static String generateCommentForStaticField(final Field field,
+         final List<CommentReplacement> replacements) {
       String comment = "";
       final FieldComment fieldComment = field.getAnnotation(FieldComment.class);
       if (fieldComment != null) {
@@ -306,6 +312,20 @@ public final class OutputFieldList {
       } else {
          comment = field.getName().toLowerCase().replace('_', ' ') + ".";
       }
+
+      if (replacements != null && !replacements.isEmpty()) {
+         for (CommentReplacement replacement : replacements) {
+            final String result = replacement.apply(comment);
+            if (result != null) {
+               comment = result;
+            }
+         }
+      }
+
+      final String commentFirstLetter = comment.substring(0, 1);
+      comment =
+            comment.replaceFirst(commentFirstLetter,
+                  commentFirstLetter.toUpperCase());
 
       return comment;
    }
@@ -402,11 +422,14 @@ public final class OutputFieldList {
     *
     * @param clazz
     *           class to examine
+    * @param replacements
+    *           list of replacements to make to the comments. Can be null or
+    *           empty, in which case it will be ignored.
     * @throws Exception
     *            if we are unable to examine a field's value.
     */
-   public static void generateStaticFieldComments(final Class clazz)
-         throws Exception {
+   public static void generateStaticFieldComments(final Class clazz,
+         final List<CommentReplacement> replacements) throws Exception {
       // Add fields for this class.
       List<Field> declaredFields =
             Arrays.asList(clazz.getDeclaredFields()).stream()
@@ -429,14 +452,11 @@ public final class OutputFieldList {
          }
 
          final String name = field.getName();
-         final String comment = generateCommentForStaticField(field);
-         final String commentFirstLetter = comment.substring(0, 1);
-         final String commentFirstLetterUpper =
-               comment.replaceFirst(commentFirstLetter,
-               commentFirstLetter.toUpperCase());
+         final String comment =
+               generateCommentForStaticField(field, replacements);
 
          fields.append("   /** ")//
-               .append(commentFirstLetterUpper)//
+               .append(comment)//
                .append(" */\n   ")//
                .append(Modifier.toString(field.getModifiers())).append(" ")//
                .append(type);
@@ -444,12 +464,33 @@ public final class OutputFieldList {
             fields.append("<").append(typeGenericSt).append(">");
          }
          fields.append(" ").append(name)//
-               .append(" = \"")//
-               .append(field.get(null))//
-               .append("\";\n\n");
+               .append(" = ")//
+               .append(getFieldValue(field))//
+               .append(";\n\n");
 
       }
       System.out.print(fields);
+   }
+
+   /**
+    * @param field
+    *           field which should have a value
+    * @return field value as a string for output
+    * @throws Exception
+    *            if we cannot access field value.
+    */
+   private static String getFieldValue(final Field field) throws Exception {
+      if (!Modifier.isStatic(field.getModifiers())) {
+         throw new IllegalStateException(
+               "Do not currently handle getting field"
+                     + " value for instance fields.");
+      }
+
+      if (field.getType().isAssignableFrom(String.class)) {
+         return "\"" + field.get(null).toString() + "\"";
+      } else {
+         return field.get(null).toString();
+      }
    }
 
    /**
@@ -575,11 +616,14 @@ public final class OutputFieldList {
     *            for any exceptions from reflection.
     */
    public static void main(final String[] args) throws Exception {
-      generateStaticFieldComments(FieldCommentSampleClass.class);
+
+      generateStaticFieldComments(FieldCommentSampleClass.class,
+            getReplacements1());
 
       final boolean no = false;
       if (no) {
-         generateStaticFieldComments(FieldCommentSampleClass.class);
+         generateStaticFieldComments(FieldCommentSampleClass.class,
+               getReplacements1());
          generateGetAndSetMethods(FieldCommentSampleClass.class, //
                OutputFields.NO_FIELDS, //
                OutputGetters.OUTPUT_GETTERS, //
@@ -806,4 +850,64 @@ public final class OutputFieldList {
       /** Don't output type information. */
       NO_TYPE;
    }
+
+   /**
+    * Replace a token in a comment with something else.
+    */
+   public static final class CommentReplacement {
+
+      /** Pattern to look for. */
+      private final Pattern pattern;
+
+      /** Token that will be inserted instead. */
+      private final String replacementValue;
+
+      /**
+       * @param thePattern
+       *           regex pattern to look for
+       * @param theReplacementValue
+       *           value to replace it with
+       */
+      public CommentReplacement(final String thePattern,
+            final String theReplacementValue) {
+         pattern = Pattern.compile(thePattern);
+         replacementValue = theReplacementValue;
+      }
+
+      /**
+       * Apply replacement pattern to <code>comment</code> and return result.
+       *
+       * @param comment
+       *           that we wish to apply this replacement strategy to.
+       * @return result of replacement or <b>null</b> if no match was found
+       */
+      public String apply(final String comment) {
+         final Matcher matcher = pattern.matcher(comment);
+         if (matcher.find()) {
+            return matcher.replaceAll(replacementValue);
+         } else {
+            return null;
+         }
+      }
+
+      @Override
+      public String toString() {
+         return "Replace [" + pattern.toString() + "] with ["
+               + replacementValue + "].";
+      }
+   }
+
+   /**
+    * KEY, NUM.
+    *
+    * @return first list of replacements.
+    */
+   private static List<CommentReplacement> getReplacements1() {
+      List<CommentReplacement> replacements =
+            new ArrayList<OutputFieldList.CommentReplacement>();
+      replacements.add(new CommentReplacement("^key ", "Key to field: "));
+      replacements.add(new CommentReplacement("^num ", "Number: "));
+      return replacements;
+   }
+
 }
