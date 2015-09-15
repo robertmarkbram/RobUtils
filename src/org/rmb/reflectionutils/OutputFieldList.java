@@ -907,6 +907,10 @@ public final class OutputFieldList {
             new ArrayList<OutputFieldList.CommentReplacement>();
       replacements.add(new CommentReplacement("^key ", "Key to field: "));
       replacements.add(new CommentReplacement("^num ", "Number: "));
+      replacements.add(new CommentReplacement("^data ",
+            "A data value that we look for in this feed: "));
+      replacements.add(new CommentReplacement("^index ",
+            "Numeric index within listItem array to field: "));
       return replacements;
    }
 
