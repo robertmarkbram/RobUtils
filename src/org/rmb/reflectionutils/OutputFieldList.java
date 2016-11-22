@@ -26,6 +26,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.rmb.reflectionutils.OutputFieldList.TypeLocation;
+import org.rmb.reflectionutils.OutputFieldList.TypeOutput;
+import org.rmb.reflectionutils.OutputFieldList.WithType;
 import org.rmb.reflectionutils.javadoc.FieldComment;
 import org.rmb.reflectionutils.javadoc.FieldCommentSampleClass;
 
@@ -39,12 +42,119 @@ import org.rmb.reflectionutils.javadoc.FieldCommentSampleClass;
 @SuppressWarnings("rawtypes")
 public final class OutputFieldList {
 
-   // TODO rmb - create settings object to cut down on parameters.
-   // TODO rmb - add ability to specify object name for get/set lists.
+    // TODO rmb - create settings object to cut down on parameters.
+    // TODO rmb - add ability to specify object name for get/set lists.
+    // TODO rmb - listAllMethods does not implement all the paramaters.
 
-   /** Class not meant for external instantiation. */
-   private OutputFieldList() {
+   /**
+    * Replace a token in a comment with something else.
+    */
+   public static final class CommentReplacement {
 
+      /** Pattern to look for. */
+      private final Pattern pattern;
+
+      /** Token that will be inserted instead. */
+      private final String replacementValue;
+
+      /**
+       * @param thePattern
+       *           regex pattern to look for
+       * @param theReplacementValue
+       *           value to replace it with
+       */
+      public CommentReplacement(final String thePattern,
+            final String theReplacementValue) {
+         pattern = Pattern.compile(thePattern);
+         replacementValue = theReplacementValue;
+      }
+
+      /**
+       * Apply replacement pattern to <code>comment</code> and return result.
+       *
+       * @param comment
+       *           that we wish to apply this replacement strategy to.
+       * @return result of replacement or <b>null</b> if no match was found
+       */
+      public String apply(final String comment) {
+         final Matcher matcher = pattern.matcher(comment);
+         if (matcher.find()) {
+            return matcher.replaceAll(replacementValue);
+         } else {
+            return null;
+         }
+      }
+
+      @Override
+      public String toString() {
+         return "Replace [" + pattern.toString() + "] with ["
+               + replacementValue + "].";
+      }
+   }
+
+   /** Output fields in outputs? */
+   public enum OutputFields {
+      /** Output fields. */
+      OUTPUT_FIELDS,
+      /** Don't output fields. */
+      NO_FIELDS;
+   }
+
+   /** Output get methods, accessors, in outputs? */
+   public enum OutputGetters {
+      /** Output get methods, accessors. */
+      OUTPUT_GETTERS,
+      /** Don't output get methods, accessors. */
+      NO_GETTERS;
+   }
+
+   /** Output set methods, mutators, in outputs? */
+   public enum OutputSetters {
+      /** Output set methods, mutators. */
+      OUTPUT_SETTERS,
+      /** Don't output set methods, mutators. */
+      NO_SETTERS;
+   }
+
+   /** Include parameters in get methods? */
+   public enum ShowParameters {
+      /** Include parameters. */
+      INCLUDE_PARAMS,
+      /** Do not include parameters. */
+      NO_PARAMS;
+   }
+
+   /** Include type information at the end of the string (gets and fields)? */
+   public enum TypeLocation {
+      /** Put type information at end. */
+      TYPE_AT_END,
+      /** Put type information at start. */
+      TYPE_AT_START;
+   }
+
+   /**
+    * <p>
+    * Output fully qualified type names via getName() or simple name via
+    * getSimpleName().
+    * </p>
+    * <ul>
+    * <li>String.class.getSimpleName() gives String</li>
+    * <li>String.class.getName() gives java.lang.String</li>
+    * </ul>
+    */
+   public enum TypeOutput {
+      /** Fully qualified type names via getName(). */
+      FULL,
+      /** Simple name via getSimpleName(). */
+      SIMPLE;
+   }
+
+   /** Include type information in outputs? */
+   public enum WithType {
+      /** Output type information. */
+      INCLUDE_TYPE,
+      /** Don't output type information. */
+      NO_TYPE;
    }
 
    /**
@@ -473,27 +583,6 @@ public final class OutputFieldList {
    }
 
    /**
-    * @param field
-    *           field which should have a value
-    * @return field value as a string for output
-    * @throws Exception
-    *            if we cannot access field value.
-    */
-   private static String getFieldValue(final Field field) throws Exception {
-      if (!Modifier.isStatic(field.getModifiers())) {
-         throw new IllegalStateException(
-               "Do not currently handle getting field"
-                     + " value for instance fields.");
-      }
-
-      if (field.getType().isAssignableFrom(String.class)) {
-         return "\"" + field.get(null).toString() + "\"";
-      } else {
-         return field.get(null).toString();
-      }
-   }
-
-   /**
     * @param clazz
     *           class whose name we want
     * @param typeOutput
@@ -525,6 +614,73 @@ public final class OutputFieldList {
          default: // FULL
             return clazz;
       }
+   }
+
+   /**
+    * @param field
+    *           field which should have a value
+    * @return field value as a string for output
+    * @throws Exception
+    *            if we cannot access field value.
+    */
+   private static String getFieldValue(final Field field) throws Exception {
+      if (!Modifier.isStatic(field.getModifiers())) {
+         throw new IllegalStateException(
+               "Do not currently handle getting field"
+                     + " value for instance fields.");
+      }
+
+      if (field.getType().isAssignableFrom(String.class)) {
+         return "\"" + field.get(null).toString() + "\"";
+      } else {
+         return field.get(null).toString();
+      }
+   }
+
+   /**
+    * KEY, NUM.
+    *
+    * @return first list of replacements.
+    */
+   private static List<CommentReplacement> getReplacements1() {
+      List<CommentReplacement> replacements =
+            new ArrayList<OutputFieldList.CommentReplacement>();
+      replacements.add(new CommentReplacement("^key ", "Key to field: "));
+      replacements.add(new CommentReplacement("^num ", "Number: "));
+      return replacements;
+   }
+
+   /**
+    * Output list of all get methods in class.
+    *
+    * @param clazz
+    *           class you want to examine
+    * @param withType
+    *           include return type in report?
+    * @param typeLocation
+    *           true: output has return type at end of each line; false: output
+    *           includes return type at start of each line (as you would expect
+    *           in an actual method declaration).
+    * @param typeOutput
+    *           how to output class name
+    * @throws Exception
+    *            if something goes wrong with reflection
+    */
+   public static void listAllMethods(final Class clazz,
+         final WithType withType, final TypeLocation typeLocation,
+         final TypeOutput typeOutput) throws Exception {
+      // TODO RMB has not been properly implemented.
+      Map<Class, List<String>> membersByClass =
+            new HashMap<Class, List<String>>();
+      Method[] methodList = clazz.getMethods();
+      ArrayList<String> memberNames = new ArrayList<String>();
+      for (Method method : methodList) {
+         memberNames.add(method.getName());
+      }
+      membersByClass.put(clazz, memberNames);
+
+      System.out.println("\n\n=============== ALL METHODS ===============");
+      outputMemberNames(clazz, membersByClass, typeOutput);
    }
 
    /**
@@ -786,128 +942,8 @@ public final class OutputFieldList {
 
    }
 
-   /** Output fields in outputs? */
-   public enum OutputFields {
-      /** Output fields. */
-      OUTPUT_FIELDS,
-      /** Don't output fields. */
-      NO_FIELDS;
+   /** Class not meant for external instantiation. */
+   private OutputFieldList() {
+
    }
-
-   /** Output get methods, accessors, in outputs? */
-   public enum OutputGetters {
-      /** Output get methods, accessors. */
-      OUTPUT_GETTERS,
-      /** Don't output get methods, accessors. */
-      NO_GETTERS;
-   }
-
-   /** Output set methods, mutators, in outputs? */
-   public enum OutputSetters {
-      /** Output set methods, mutators. */
-      OUTPUT_SETTERS,
-      /** Don't output set methods, mutators. */
-      NO_SETTERS;
-   }
-
-   /** Include parameters in get methods? */
-   public enum ShowParameters {
-      /** Include parameters. */
-      INCLUDE_PARAMS,
-      /** Do not include parameters. */
-      NO_PARAMS;
-   }
-
-   /** Include type information at the end of the string (gets and fields)? */
-   public enum TypeLocation {
-      /** Put type information at end. */
-      TYPE_AT_END,
-      /** Put type information at start. */
-      TYPE_AT_START;
-   }
-
-   /**
-    * <p>
-    * Output fully qualified type names via getName() or simple name via
-    * getSimpleName().
-    * </p>
-    * <ul>
-    * <li>String.class.getSimpleName() gives String</li>
-    * <li>String.class.getName() gives java.lang.String</li>
-    * </ul>
-    */
-   public enum TypeOutput {
-      /** Fully qualified type names via getName(). */
-      FULL,
-      /** Simple name via getSimpleName(). */
-      SIMPLE;
-   }
-
-   /** Include type information in outputs? */
-   public enum WithType {
-      /** Output type information. */
-      INCLUDE_TYPE,
-      /** Don't output type information. */
-      NO_TYPE;
-   }
-
-   /**
-    * Replace a token in a comment with something else.
-    */
-   public static final class CommentReplacement {
-
-      /** Pattern to look for. */
-      private final Pattern pattern;
-
-      /** Token that will be inserted instead. */
-      private final String replacementValue;
-
-      /**
-       * @param thePattern
-       *           regex pattern to look for
-       * @param theReplacementValue
-       *           value to replace it with
-       */
-      public CommentReplacement(final String thePattern,
-            final String theReplacementValue) {
-         pattern = Pattern.compile(thePattern);
-         replacementValue = theReplacementValue;
-      }
-
-      /**
-       * Apply replacement pattern to <code>comment</code> and return result.
-       *
-       * @param comment
-       *           that we wish to apply this replacement strategy to.
-       * @return result of replacement or <b>null</b> if no match was found
-       */
-      public String apply(final String comment) {
-         final Matcher matcher = pattern.matcher(comment);
-         if (matcher.find()) {
-            return matcher.replaceAll(replacementValue);
-         } else {
-            return null;
-         }
-      }
-
-      @Override
-      public String toString() {
-         return "Replace [" + pattern.toString() + "] with ["
-               + replacementValue + "].";
-      }
-   }
-
-   /**
-    * KEY, NUM.
-    *
-    * @return first list of replacements.
-    */
-   private static List<CommentReplacement> getReplacements1() {
-      List<CommentReplacement> replacements =
-            new ArrayList<OutputFieldList.CommentReplacement>();
-      replacements.add(new CommentReplacement("^key ", "Key to field: "));
-      replacements.add(new CommentReplacement("^num ", "Number: "));
-      return replacements;
-   }
-
 }
