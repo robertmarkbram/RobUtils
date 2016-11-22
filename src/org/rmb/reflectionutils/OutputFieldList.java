@@ -651,7 +651,7 @@ public final class OutputFieldList {
    }
 
    /**
-    * Output list of all get methods in class.
+    * Output list of all get methods in class. Git test.
     *
     * @param clazz
     *           class you want to examine
