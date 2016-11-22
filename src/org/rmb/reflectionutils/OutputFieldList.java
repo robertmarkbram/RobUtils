@@ -41,6 +41,7 @@ public final class OutputFieldList {
 
    // TODO rmb - create settings object to cut down on parameters.
    // TODO rmb - add ability to specify object name for get/set lists.
+   // TODO rmb - listAllMethods does not implement all the paramaters.
 
    /** Class not meant for external instantiation. */
    private OutputFieldList() {
@@ -547,7 +548,7 @@ public final class OutputFieldList {
          throws Exception {
       Map<Class, List<String>> membersByClass =
             new HashMap<Class, List<String>>();
-      addFieldNamesToList(clazz, membersByClass, INCLUDE_TYPE, typeLocation,
+      addFieldNamesToList(clazz, membersByClass, withType, typeLocation,
             typeOutput);
       System.out.println("\n\n=============== FIELDS ===============");
       outputMemberNames(clazz, membersByClass, typeOutput);
@@ -580,6 +581,39 @@ public final class OutputFieldList {
       outputMemberNames(clazz, membersByClass, typeOutput);
    }
 
+   /**
+    * Output list of all get methods in class.
+    *
+    * @param clazz
+    *           class you want to examine
+    * @param withType
+    *           include return type in report?
+    * @param typeLocation
+    *           true: output has return type at end of each line; false: output
+    *           includes return type at start of each line (as you would expect
+    *           in an actual method declaration).
+    * @param typeOutput
+    *           how to output class name
+    * @throws Exception
+    *            if something goes wrong with reflection
+    */
+   public static void listAllMethods(final Class clazz,
+         final WithType withType, final TypeLocation typeLocation,
+         final TypeOutput typeOutput) throws Exception {
+      // TODO RMB has not been properly implemented.
+      Map<Class, List<String>> membersByClass =
+            new HashMap<Class, List<String>>();
+      Method[] methodList = clazz.getMethods();
+      ArrayList<String> memberNames = new ArrayList<String>();
+      for (Method method : methodList) {
+         memberNames.add(method.getName());
+      }
+      membersByClass.put(clazz, memberNames);
+
+      System.out.println("\n\n=============== ALL METHODS ===============");
+      outputMemberNames(clazz, membersByClass, typeOutput);
+   }
+   
    /**
     * Output list of all set methods in class.
     *
@@ -617,8 +651,7 @@ public final class OutputFieldList {
     */
    public static void main(final String[] args) throws Exception {
 
-      generateStaticFieldComments(FieldCommentSampleClass.class,
-            getReplacements1());
+      listAllMethods(String.class, INCLUDE_TYPE, TYPE_AT_START, SIMPLE);
 
       final boolean no = false;
       if (no) {

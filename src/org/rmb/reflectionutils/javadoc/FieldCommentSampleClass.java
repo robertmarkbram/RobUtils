@@ -8,15 +8,25 @@ package org.rmb.reflectionutils.javadoc;
  */
 public final class FieldCommentSampleClass {
 
-	/** This is the name of the thing. */
-	@FieldComment(comment = "This is the name of the thing.")
-	private String name;
+   /** This is the name of the thing. */
+   @FieldComment(comment = "This is the name of the thing.")
+   private String name;
 
-	/** How old it is. */
-	@FieldComment(comment = "How old it is.")
-	private int age;
+   /** How old it is. */
+   @FieldComment(comment = "How old it is.")
+   private int age;
 
-	// Field with no javadoc comment.
-	private int year;
+   private String calledPartyEndLocationBearing;
+   private String calledPartyStartLocationBearing;
+   private String callingPartyEndLocationBearing;
+   private String callingPartyStartLocationBearing;
+   private String calledPartyEndLocationLatitude;
+   private String calledPartyStartLocationLatitude;
+   private String callingPartyEndLocationLatitude;
+   private String callingPartyStartLocationLatitude;
+   private String calledPartyEndLocationLongitude;
+   private String calledPartyStartLocationLongitude;
+   private String callingPartyEndLocationLongitude;
+   private String callingPartyStartLocationLongitude;
 
 }
